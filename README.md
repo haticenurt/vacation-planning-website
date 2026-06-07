@@ -28,23 +28,6 @@ https://vacationplanningwebsite.netlify.app/
 * Framer Motion
 * Lucide React
 
-## ⚙️ Installation
-
-```bash
-git clone https://github.com/haticenurt/vacation-planning-website.git
-
-cd vacation-planning-website
-
-npm install
-
-npm run dev
-```
-
-The application will run at:
-
-```txt
-http://localhost:5173
-```
 
 ## 🔌 Backend Integration
 
@@ -58,15 +41,9 @@ The frontend communicates with a Node.js and Express.js backend service that:
 
 Backend Repository:
 
-```txt
 https://github.com/haticenurt/vacation-planning-website-backend
-```
 
-Live Backend:
 
-```txt
-https://vacation-planning-website-backend.onrender.com
-```
 
 ## 🎯 Purpose
 
@@ -101,18 +78,7 @@ Redux Toolkit
 React Router DOM
 Framer Motion
 Lucide React
-⚙️ Kurulum
-git clone https://github.com/haticenurt/vacation-planning-website.git
 
-cd vacation-planning-website
-
-npm install
-
-npm run dev
-
-Uygulama varsayılan olarak aşağıdaki adreste çalışır:
-
-http://localhost:5173
 🔌 Backend Entegrasyonu
 
 Frontend uygulaması, Node.js ve Express.js ile geliştirilen backend servisi ile haberleşmektedir.
@@ -129,9 +95,7 @@ Backend Repository:
 
 https://github.com/haticenurt/vacation-planning-website-backend
 
-Canlı Backend:
 
-https://vacation-planning-website-backend.onrender.com
 🎯 Projenin Amacı
 
 Bu projenin amacı, kullanıcıların farklı platformlarda ayrı ayrı uçuş ve otel araması yapmak yerine tüm seyahat planlama sürecini tek bir platform üzerinden yönetebilmesini sağlamaktır.
