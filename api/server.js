@@ -7,7 +7,7 @@ import process from "node:process";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const databasePath = join(__dirname, "../data/trips.json");
-const port = Number(process.env.PORT) || 8000;
+const port = Number(process.env.PORT) || 3000;
 const host = "0.0.0.0";
 
 const sendJson = (response, statusCode, data) => {
@@ -93,6 +93,12 @@ const validateTrip = trip => {
 const normalizeText = value => String(value || "").trim();
 
 const categorySettings = {
+    cheap: {
+        label: "Butce dostu",
+        multiplier: 0.82,
+        airlines: ["Pegasus", "AnadoluJet", "SunExpress"],
+        hotel: "Ekonomik otel",
+    },
     budget: {
         label: "Butce dostu",
         multiplier: 0.82,
@@ -100,6 +106,12 @@ const categorySettings = {
         hotel: "Ekonomik otel",
     },
     mid: {
+        label: "Fiyat/konfor dengesi",
+        multiplier: 1.08,
+        airlines: ["Turkish Airlines", "AJet", "Lufthansa"],
+        hotel: "Merkezi otel",
+    },
+    medium: {
         label: "Fiyat/konfor dengesi",
         multiplier: 1.08,
         airlines: ["Turkish Airlines", "AJet", "Lufthansa"],
@@ -114,15 +126,15 @@ const categorySettings = {
 };
 
 const validateSearch = search => {
-    if (!normalizeText(search.from_location) || !normalizeText(search.to) || !normalizeText(search.date)) {
+    if (!normalizeText(search.from_location || search.from || search.origin) || !normalizeText(search.to || search.to_location || search.destination) || !normalizeText(search.date || search.departureDate || search.departure_date || search.startDate || search.start_date)) {
         return "Kalkis, varis ve tarih alanlari zorunlu.";
     }
 
-    if (Number(search.passengers) < 1) {
+    if (Number(search.passengers || search.passengerCount || search.passenger_count || search.peopleCount) < 1) {
         return "Yolcu sayisi en az 1 olmali.";
     }
 
-    if (!categorySettings[search.category]) {
+    if (!categorySettings[search.category || search.type || search.preference || search.travelType || search.travel_type || search.budgetType]) {
         return "Gecersiz kategori.";
     }
 
@@ -150,14 +162,16 @@ const getDateDemand = dateValue => {
 const roundToTen = value => Math.max(690, Math.round(value / 10) * 10);
 
 const buildSearchPackages = search => {
-    const from = normalizeText(search.from_location);
-    const to = normalizeText(search.to);
-    const passengers = Number(search.passengers) || 1;
-    const settings = categorySettings[search.category];
+    const category = search.category || search.type || search.preference || search.travelType || search.travel_type || search.budgetType;
+    const from = normalizeText(search.from_location || search.from || search.origin);
+    const to = normalizeText(search.to || search.to_location || search.destination);
+    const date = normalizeText(search.date || search.departureDate || search.departure_date || search.startDate || search.start_date);
+    const passengers = Number(search.passengers || search.passengerCount || search.passenger_count || search.peopleCount) || 1;
+    const settings = categorySettings[category];
     const routeHash = hashText(`${from}-${to}`);
     const routeDemand = 0.86 + (routeHash % 41) / 100;
     const distanceProxy = 820 + Math.abs(hashText(from) - hashText(to)) * 7;
-    const dateDemand = getDateDemand(search.date);
+    const dateDemand = getDateDemand(date);
 
     return settings.airlines.map((airline, index) => {
         const optionDemand = 0.92 + ((routeHash + index * 17) % 29) / 100;
@@ -165,18 +179,42 @@ const buildSearchPackages = search => {
         const stops = index === 0 ? "Direkt ucus" : `${index} aktarma`;
 
         return {
-            id: `${search.category}-${routeHash}-${index + 1}`,
+            id: `${category}-${routeHash}-${index + 1}`,
             title: `${airline} ${stops.toLowerCase()}`,
             route: `${from} - ${to}`,
             airline,
             description: `${stops}, ${settings.hotel}, ${passengers} yolcu icin toplam ${price.toLocaleString("tr-TR")} TL.`,
             summary: `${settings.label}: ${airline} ile ${from} - ${to} rotasi.`,
-            date: normalizeText(search.date),
+            date,
             passengers,
             price,
             currency: "TRY",
-            category: search.category,
+            category,
         };
+    });
+};
+
+const handleRecommendRequest = async (request, response) => {
+    const payload = await parseBody(request);
+
+    if (payload.travelType && typeof payload.wantsCarRental === "boolean") {
+        const updatedTrip = await saveLatestTripOptions(payload);
+
+        if (!updatedTrip) {
+            return sendJson(response, 404, { message: "Kaydedilecek yolculuk bulunamadi." });
+        }
+
+        return sendJson(response, 200, updatedTrip);
+    }
+
+    const errorMessage = validateSearch(payload);
+
+    if (errorMessage) {
+        return sendJson(response, 400, { message: errorMessage });
+    }
+
+    return sendJson(response, 200, {
+        packages: buildSearchPackages(payload),
     });
 };
 
@@ -276,20 +314,18 @@ const handleRequest = async (request, response) => {
         }
     }
 
+    if (request.url === "/api/trips/recommend" && request.method === "POST") {
+        try {
+            return await handleRecommendRequest(request, response);
+        } catch (error) {
+            logError("POST /api/trips/recommend", error);
+            return sendJson(response, 500, { message: "Oneri istegi sirasinda backend hatasi olustu." });
+        }
+    }
+
     if (request.url === "/search" && request.method === "POST") {
         try {
-            const search = await parseBody(request);
-            console.log("Search payload:", search);
-
-            const errorMessage = validateSearch(search);
-
-            if (errorMessage) {
-                return sendJson(response, 400, { message: errorMessage });
-            }
-
-            return sendJson(response, 200, {
-                packages: buildSearchPackages(search),
-            });
+            return await handleRecommendRequest(request, response);
         } catch (error) {
             logError("POST /search", error);
             return sendJson(response, 500, { message: "Arama sirasinda backend hatasi olustu." });

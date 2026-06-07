@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -29,39 +29,11 @@ const cabinClasses = [
     "First",
 ];
 
-const locationOptions = [
-    "İstanbul",
-    "Ankara",
-    "İzmir",
-    "Antalya",
-    "Adana",
-    "Trabzon",
-    "Dalaman",
-    "Bodrum",
-    "Kayseri",
-    "Gaziantep",
-    "Diyarbakır",
-    "Van",
-    "Samsun",
-    "Erzurum",
-    "Konya",
-];
-
-const monthNames = [
-    "Ocak",
-    "Şubat",
-    "Mart",
-    "Nisan",
-    "Mayıs",
-    "Haziran",
-    "Temmuz",
-    "Ağustos",
-    "Eylül",
-    "Ekim",
-    "Kasım",
-    "Aralık",
-];
-
+const monthNames = Array.from({ length: 12 }, (_, index) =>
+    new Intl.DateTimeFormat("tr-TR", { month: "long" }).format(
+        new Date(2026, index, 1)
+    )
+);
 const weekDays = ["Pzt", "Sal", "Çar", "Per", "Cuma", "Cmt", "Paz"];
 
 const formatMonth = date =>
@@ -89,14 +61,6 @@ const toDateValue = date => {
     const day = String(date.getDate()).padStart(2, "0");
 
     return `${year}-${month}-${day}`;
-};
-
-const fromDateValue = value => {
-    if (!value) return null;
-
-    const [year, month, day] = value.split("-").map(Number);
-
-    return new Date(year, month - 1, day);
 };
 
 const toMonthValue = date => {
@@ -144,7 +108,6 @@ const buildCalendarDays = monthDate => {
 function DatePicker({
     tripType,
     dateMode,
-    setDateMode,
     departureDate,
     returnDate,
     departureMonth,
@@ -161,18 +124,6 @@ function DatePicker({
     );
     const [isMonthPickerOpen, setIsMonthPickerOpen] =
         useState(false);
-
-    const months = useMemo(
-        () => [
-            visibleMonth,
-            new Date(
-                visibleMonth.getFullYear(),
-                visibleMonth.getMonth() + 1,
-                1
-            ),
-        ],
-        [visibleMonth]
-    );
 
     const getFieldValue = field => {
         if (dateMode === "month") {
@@ -479,9 +430,10 @@ function DatePicker({
     );
 }
 
-function LocationSelector({ label, value, onChange }) {
+function LocationSelector({ label, value, options, onChange }) {
     const [isOpen, setIsOpen] = useState(false);
     const selectorRef = useRef(null);
+    const selectedOption = options.find(option => option.value === value);
 
     useEffect(() => {
         if (!isOpen) return;
@@ -529,7 +481,7 @@ function LocationSelector({ label, value, onChange }) {
                         value ? "text-slate-950" : "text-slate-400"
                     }`}
                 >
-                    {value || "Sehir veya havalimani sec"}
+                    {selectedOption?.label || "Sehir veya havalimani sec"}
                 </span>
             </button>
 
@@ -541,21 +493,21 @@ function LocationSelector({ label, value, onChange }) {
                         exit={{ opacity: 0, y: 12 }}
                         className="absolute left-0 right-0 top-full z-30 max-h-72 overflow-y-auto rounded-3xl border border-white/80 bg-white p-2 shadow-2xl"
                     >
-                        {locationOptions.map(option => (
+                        {options.map(option => (
                             <button
-                                key={option}
+                                key={option.value}
                                 type="button"
                                 onClick={() => {
-                                    onChange(option);
+                                    onChange(option.value);
                                     setIsOpen(false);
                                 }}
                                 className={`w-full rounded-2xl px-4 py-3 text-left text-sm font-black transition hover:bg-cyan-50 hover:text-cyan-700 ${
-                                    value === option
+                                    value === option.value
                                         ? "bg-slate-950 text-white hover:bg-slate-950 hover:text-white"
                                         : "text-slate-700"
                                 }`}
                             >
-                                {option}
+                                {option.label}
                             </button>
                         ))}
                     </motion.div>
@@ -764,6 +716,9 @@ export default function Home() {
     const [formError, setFormError] =
         useState("");
 
+    const [locationOptions, setLocationOptions] =
+        useState([]);
+
     const [departureDate, setDepartureDate] =
         useState(new Date(2026, 5, 12));
 
@@ -784,6 +739,27 @@ export default function Home() {
     const [cabinClass, setCabinClass] =
         useState("Ekonomi");
 
+    useEffect(() => {
+        async function fetchLocations() {
+            try {
+                const response = await fetch("http://localhost:3000/api/locations");
+                const data = await response.json();
+
+                setLocationOptions(
+                    data.map(item => ({
+                        value: item.value,
+                        label: item.label,
+                    }))
+                );
+            } catch {
+                setLocationOptions([]);
+                setFormError("Sehir listesi backend'den alinamadi.");
+            }
+        }
+
+        fetchLocations();
+    }, []);
+
     const swapLocations = () => {
         setFromLocation(toLocation);
         setToLocation(fromLocation);
@@ -793,8 +769,8 @@ export default function Home() {
         event.preventDefault();
 
         if (
-            !locationOptions.includes(fromLocation) ||
-            !locationOptions.includes(toLocation)
+            !locationOptions.some(option => option.value === fromLocation) ||
+            !locationOptions.some(option => option.value === toLocation)
         ) {
             setFormError(
                 "Lütfen listeden geçerli bir konum seçin."
@@ -896,6 +872,7 @@ export default function Home() {
                             <LocationSelector
                                 label="Nereden"
                                 value={fromLocation}
+                                options={locationOptions}
                                 onChange={value => {
                                     setFromLocation(value);
                                     setFormError("");
@@ -914,6 +891,7 @@ export default function Home() {
                             <LocationSelector
                                 label="Nereye"
                                 value={toLocation}
+                                options={locationOptions}
                                 onChange={value => {
                                     setToLocation(value);
                                     setFormError("");

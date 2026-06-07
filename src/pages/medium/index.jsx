@@ -1,12 +1,5 @@
-import TravelPreference from "../travelPreference";
+import RecommendationsPage from "../recommendations";
 
 export default function Medium(){
-    return(
-        <TravelPreference
-            type="medium"
-            title="Orta secim"
-            description="Dengeli bir yolculuk icin arac kiralama ihtiyacini da kaydedelim."
-            accentClass="text-sky-600"
-        />
-    )
+    return <RecommendationsPage budgetType="medium" />;
 }

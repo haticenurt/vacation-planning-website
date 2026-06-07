@@ -2,7 +2,7 @@ import { useState } from "react";
 
 /* eslint-disable react/prop-types */
 
-const API_BASE_URL = "https://travel-assistant-production-273c.up.railway.app";
+const API_BASE_URL = "http://localhost:3000";
 
 const readResponseJson = async response => {
     try {
@@ -12,31 +12,68 @@ const readResponseJson = async response => {
     }
 };
 
+const cleanLocation = location => location?.replace(/\s*\([^)]*\)/g, "").trim() || "";
+
+const getErrorMessage = (data, status) => (
+    data.error ||
+    data.message ||
+    `Secim kaydedilemedi. (${status})`
+);
+
+const normalizeDateValue = value => {
+    if (!value) return "";
+
+    if (/^\d{4}-\d{2}$/.test(value)) {
+        return `${value}-01`;
+    }
+
+    return value;
+};
+
 export default function TravelPreference({ type, title, description, accentClass }){
     const [message, setMessage] = useState("");
     const [isSaving, setIsSaving] = useState(false);
     const [selectedOption, setSelectedOption] = useState(null);
 
     const savePreference = async wantsCarRental => {
+        const savedTripInfo = localStorage.getItem("tripInfo");
+        let tripInfo = {};
+
+        try {
+            tripInfo = savedTripInfo ? JSON.parse(savedTripInfo) : {};
+        } catch {
+            tripInfo = {};
+        }
+
+        const from = cleanLocation(tripInfo.from);
+        const to = cleanLocation(tripInfo.to);
+        const startDate = normalizeDateValue(tripInfo.date || tripInfo.startDate || "");
+        const endDate = normalizeDateValue(tripInfo.returnDate || tripInfo.endDate || startDate);
+        const peopleCount = Number(tripInfo.passengers) || 1;
+
         setIsSaving(true);
         setSelectedOption(wantsCarRental);
         setMessage("");
 
         try {
-            const response = await fetch("https://travel-assistant-production-273c.up.railway.app/search/api/trips/latest/options", {
+            const response = await fetch(`${API_BASE_URL}/api/trips/recommend`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
                 },
                 body: JSON.stringify({
-                    travelType: type,
-                    wantsCarRental,
+                    from,
+                    to,
+                    startDate,
+                    endDate,
+                    peopleCount,
+                    budgetType: type,
                 }),
             });
 
             if (!response.ok) {
                 const errorData = await readResponseJson(response);
-                throw new Error(errorData.message || `Secim kaydedilemedi. (${response.status})`);
+                throw new Error(getErrorMessage(errorData, response.status));
             }
 
             setMessage("Secimin kaydedildi.");

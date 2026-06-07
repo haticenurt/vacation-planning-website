@@ -1,14 +1,15 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
+import { useNavigate } from "react-router-dom";
 
-const API_BASE_URL = "https://travel-assistant-production-273c.up.railway.app";
+const API_BASE_URL = "http://localhost:3000";
 
 const travelTypes = [
     {
         title: "Ucuz",
         description: "Bütçe dostu seçeneklerle en uygun yolculuğu bul.",
         price: "En ekonomik",
-        category: "budget",
+        category: "cheap",
         accent: "from-emerald-400 to-teal-500",
         glow: "group-hover:shadow-emerald-500/25",
         badge: "bg-emerald-50 text-emerald-700 ring-emerald-200",
@@ -18,7 +19,7 @@ const travelTypes = [
         title: "Orta",
         description: "Fiyat ve konfor dengesini koruyan seçenekleri listele.",
         price: "Dengeli tercih",
-        category: "mid",
+        category: "medium",
         accent: "from-sky-400 to-blue-600",
         glow: "group-hover:shadow-sky-500/25",
         badge: "bg-sky-50 text-sky-700 ring-sky-200",
@@ -69,6 +70,10 @@ const readResponseJson = async response => {
 };
 
 const getErrorMessage = (data, status) => {
+    if (typeof data.error === "string") {
+        return data.error;
+    }
+
     if (typeof data.detail === "string") {
         return data.detail;
     }
@@ -82,23 +87,44 @@ const getErrorMessage = (data, status) => {
     return data.message || `Backend aramasi basarisiz oldu. (${status})`;
 };
 
-const getPackageTitle = (packageItem, index) => (
-    packageItem.title ||
-    packageItem.name ||
-    packageItem.route ||
-    `Oneri ${index + 1}`
-);
+const normalizeDateValue = value => {
+    if (!value) return "";
 
-const getPackageDescription = packageItem => (
-    packageItem.description ||
-    packageItem.summary ||
-    packageItem.details ||
-    packageItem.airline ||
-    JSON.stringify(packageItem)
-);
+    if (/^\d{4}-\d{2}$/.test(value)) {
+        return `${value}-01`;
+    }
+
+    return value;
+};
+
+const isFullDate = value => /^\d{4}-\d{2}-\d{2}$/.test(value);
+
+const parseRecommendationString = recommendations => {
+    try {
+        return JSON.parse(recommendations.replace(/```json|```/g, "").trim());
+    } catch {
+        return [recommendations];
+    }
+};
+
+const normalizeRecommendations = data => {
+    const recommendations = typeof data.recommendations === "string"
+        ? parseRecommendationString(data.recommendations)
+        : data.recommendations;
+
+    if (Array.isArray(recommendations)) {
+        return recommendations;
+    }
+
+    if (recommendations && typeof recommendations === "object") {
+        return [recommendations];
+    }
+
+    return data.packages || [];
+};
 
 export default function Type(){
-    const [packages, setPackages] = useState([]);
+    const navigate = useNavigate();
     const [selectedCategory, setSelectedCategory] = useState("");
     const [isLoading, setIsLoading] = useState(false);
     const [message, setMessage] = useState("");
@@ -107,7 +133,6 @@ export default function Type(){
         const savedTripInfo = localStorage.getItem("tripInfo");
 
         if (!savedTripInfo) {
-            setPackages([]);
             setMessage("Önce uçuş arama bilgilerini doldurmalısın.");
             return;
         }
@@ -117,7 +142,6 @@ export default function Type(){
         try {
             tripInfo = JSON.parse(savedTripInfo);
         } catch {
-            setPackages([]);
             setMessage("Kayıtlı uçuş bilgisi okunamadı. Lütfen tekrar arama yap.");
             return;
         }
@@ -127,15 +151,34 @@ export default function Type(){
         setMessage("");
 
         try {
-            const response = await fetch("https://travel-assistant-production-273c.up.railway.app/search", {
+            const from = cleanLocation(tripInfo.from);
+            const to = cleanLocation(tripInfo.to);
+            const startDate = normalizeDateValue(tripInfo.date || tripInfo.startDate || "");
+            const endDate = normalizeDateValue(tripInfo.returnDate || tripInfo.endDate || startDate);
+            const peopleCount = Number(tripInfo.passengers) || 1;
+
+            if (!from || !to || !startDate || !endDate || !peopleCount || !category) {
+                throw new Error("Backend istegi icin gerekli alanlar eksik.");
+            }
+
+            if (from.toLowerCase() === to.toLowerCase()) {
+                throw new Error("Kalkis ve varis sehri ayni olamaz.");
+            }
+
+            if (!isFullDate(startDate) || !isFullDate(endDate)) {
+                throw new Error("Tarih formati YYYY-MM-DD olmali.");
+            }
+
+            const response = await fetch(`${API_BASE_URL}/api/trips/recommend`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    from_location: cleanLocation(tripInfo.from),
-                    to: cleanLocation(tripInfo.to),
-                    date: tripInfo.date,
-                    passengers: Number(tripInfo.passengers) || 1,
-                    category,
+                    from,
+                    to,
+                    startDate,
+                    endDate,
+                    peopleCount,
+                    budgetType: category,
                 }),
             });
 
@@ -145,10 +188,31 @@ export default function Type(){
                 throw new Error(getErrorMessage(data, response.status));
             }
 
-            setPackages(data.packages || []);
-            setMessage(data.packages?.length ? "" : "Bu kategoride uygun paket bulunamadı.");
+            const recommendations = normalizeRecommendations(data);
+
+            if (!recommendations.length) {
+                setMessage("Bu kategoride uygun paket bulunamadi.");
+                return;
+            }
+
+            localStorage.setItem(
+                "tripRecommendations",
+                JSON.stringify({
+                    budgetType: category,
+                    search: data.search || {
+                        from,
+                        to,
+                        startDate,
+                        endDate,
+                        peopleCount,
+                        budgetType: category,
+                    },
+                    recommendations,
+                })
+            );
+
+            navigate(`/${category}`);
         } catch (error) {
-            setPackages([]);
             setMessage(error.message || "Arama sırasında bir hata oluştu.");
         } finally {
             setIsLoading(false);
@@ -227,44 +291,16 @@ export default function Type(){
                     ))}
                 </motion.div>
 
-                {(message || packages.length > 0) && (
+                {message && (
                     <motion.div
                         initial={{ opacity: 0, y: 24 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.35 }}
                         className="mt-10 rounded-2xl border border-white/70 bg-white/70 p-5 shadow-2xl shadow-slate-900/10 backdrop-blur-2xl"
                     >
-                        {message && (
-                            <p className="text-sm font-bold text-slate-700">
-                                {message}
-                            </p>
-                        )}
-
-                        {packages.length > 0 && (
-                            <div>
-                                <h2 className="text-2xl font-black tracking-tight text-slate-950">
-                                    Onerilen paketler
-                                </h2>
-                                <div className="mt-5 grid gap-4 md:grid-cols-3">
-                                    {packages.map((packageItem, index) => (
-                                        <article
-                                            key={packageItem.id || packageItem.title || index}
-                                            className="rounded-2xl border border-slate-200 bg-white/85 p-4 shadow-lg shadow-slate-900/5"
-                                        >
-                                            <span className="text-xs font-black uppercase tracking-wide text-slate-400">
-                                                Paket {index + 1}
-                                            </span>
-                                            <h3 className="mt-2 text-lg font-black text-slate-950">
-                                                {getPackageTitle(packageItem, index)}
-                                            </h3>
-                                            <p className="mt-2 text-sm font-medium leading-6 text-slate-600">
-                                                {getPackageDescription(packageItem)}
-                                            </p>
-                                        </article>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
+                        <p className="text-sm font-bold text-slate-700">
+                            {message}
+                        </p>
                     </motion.div>
                 )}
             </section>
