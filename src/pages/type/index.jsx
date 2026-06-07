@@ -2,7 +2,7 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 
-const API_BASE_URL = "http://localhost:3000";
+const RECOMMEND_URL = "https://vacation-planning-website-backend.onrender.com/api/trips/recommend";
 
 const travelTypes = [
     {
@@ -169,7 +169,7 @@ export default function Type(){
                 throw new Error("Tarih formati YYYY-MM-DD olmali.");
             }
 
-            const response = await fetch(`${API_BASE_URL}/api/trips/recommend`, {
+            const response = await fetch(RECOMMEND_URL, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -211,7 +211,7 @@ export default function Type(){
                 })
             );
 
-            navigate(`/${category}`);
+            navigate(`/${category}`, { replace: true });
         } catch (error) {
             setMessage(error.message || "Arama sırasında bir hata oluştu.");
         } finally {

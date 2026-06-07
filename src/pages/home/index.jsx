@@ -481,7 +481,7 @@ function LocationSelector({ label, value, options, onChange }) {
                         value ? "text-slate-950" : "text-slate-400"
                     }`}
                 >
-                    {selectedOption?.label || "Sehir veya havalimani sec"}
+                    {selectedOption?.label || "Şehir seç"}
                 </span>
             </button>
 
@@ -742,7 +742,7 @@ export default function Home() {
     useEffect(() => {
         async function fetchLocations() {
             try {
-                const response = await fetch("http://localhost:3000/api/locations");
+                const response = await fetch("https://vacation-planning-website-backend.onrender.com/api/locations");
                 const data = await response.json();
 
                 setLocationOptions(
@@ -808,7 +808,7 @@ export default function Home() {
             })
         );
 
-        navigate("/type");
+        navigate("/type", { replace: true });
     };
 
     return (

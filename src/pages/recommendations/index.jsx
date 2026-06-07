@@ -90,9 +90,9 @@ export default function RecommendationsPage({ budgetType }) {
         return (
             <main className="min-h-[calc(100vh-64px)] bg-slate-50 px-4 py-16">
                 <section className="mx-auto max-w-4xl rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
-                    <Link to="/type" className="inline-flex items-center gap-2 text-sm font-black text-slate-600 hover:text-slate-950">
+                    <Link to="/" className="inline-flex items-center gap-2 text-sm font-black text-slate-600 hover:text-slate-950">
                         <ArrowLeft size={17} />
-                        Yolculuk tipine don
+                        Ana sayfaya don
                     </Link>
                     <h1 className="mt-8 text-3xl font-black text-slate-950">
                         Bu sayfa için kayıtlı paket bulunamadı.
@@ -110,9 +110,9 @@ export default function RecommendationsPage({ budgetType }) {
             <section className="mx-auto max-w-7xl">
                 <div className="mb-8 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
                     <div>
-                        <Link to="/type" className="inline-flex items-center gap-2 text-sm font-black text-slate-500 hover:text-slate-950">
+                        <Link to="/" className="inline-flex items-center gap-2 text-sm font-black text-slate-500 hover:text-slate-950">
                             <ArrowLeft size={17} />
-                            Yolculuk tipini değiştir
+                            Ana sayfaya don
                         </Link>
                         <p className={`mt-6 text-sm font-black uppercase tracking-wide ${pageMeta.accent}`}>
                             {pageMeta.eyebrow}

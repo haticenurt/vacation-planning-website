@@ -2,7 +2,7 @@ import { useState } from "react";
 
 /* eslint-disable react/prop-types */
 
-const API_BASE_URL = "http://localhost:3000";
+const RECOMMEND_URL = "https://vacation-planning-website-backend.onrender.com/api/trips/recommend";
 
 const readResponseJson = async response => {
     try {
@@ -56,7 +56,7 @@ export default function TravelPreference({ type, title, description, accentClass
         setMessage("");
 
         try {
-            const response = await fetch(`${API_BASE_URL}/api/trips/recommend`, {
+            const response = await fetch(RECOMMEND_URL, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
